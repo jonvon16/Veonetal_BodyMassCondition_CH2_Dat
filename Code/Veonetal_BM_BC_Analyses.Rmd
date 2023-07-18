@@ -7,8 +7,7 @@ output: html_document
 
 ###Read in data file###
 ```{r}
-BCI30km <- read.csv("./MallBCI_20192021_30km.csv", header = TRUE)
-BCILocTry <- read.csv("./MallBCI_20192021_30km.csv", header = TRUE)
+BCI30km <- read.csv("./MALL_BM_BCI_AR_LMAV_2019_2021.csv", header = TRUE)
 library(ggplot2)
 library(ggfortify) 
 library(MASS)
@@ -48,7 +47,7 @@ BCI30km$Prop_MedDisturbls = scale(BCI30km$Prop_MedDisturbl)
 ###Correlation Matrix###
 ```{r}
 # Load data
-my_CorBCI <- BCI30km[, c(19,21,26,27,28,30,31,32,33,36)]
+my_CorBCI <- BCI30km[, c(12,14,16,17,19,20,21,22,23,24)]
 # print the first 6 rows
 head(my_CorBCI, 9)
 ```
