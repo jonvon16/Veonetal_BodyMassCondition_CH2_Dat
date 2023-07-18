@@ -5,3 +5,614 @@ date: "2023-04-01"
 output: html_document
 ---
 
+###Read in data file###
+```{r}
+BCI30km <- read.csv("./MallBCI_20192021_30km.csv", header = TRUE)
+BCILocTry <- read.csv("./MallBCI_20192021_30km.csv", header = TRUE)
+library(ggplot2)
+library(ggfortify) 
+library(MASS)
+library(ggthemes)
+library(lme4)
+library(car)
+library(AICcmodavg)
+library(lattice)
+library(rstatix)
+library(MuMIn)
+library(ggeffects)
+library(lmerTest)
+library(corrplot)
+library(redres)
+```
+
+
+##Make variables
+```{r}
+BCI30km$LOC_NUM_BCI = as.factor(BCI30km$LOC_NUM_BCI)
+
+BCI30km$PropTotWaterl = log(BCI30km$PropTotWater)
+BCI30km$PropSoybeanl = log(BCI30km$PropSoybean)
+BCI30km$PropHerbWetl = log(BCI30km$PropHerbWet)
+BCI30km$Prop_MedDisturbl = log(BCI30km$Prop_MedDisturb)
+```
+
+```{r}
+BCI30km$PropTotWaterls = scale(BCI30km$PropTotWaterl)
+BCI30km$PropWoodyWets = scale(BCI30km$PropWoodyWet)
+BCI30km$PropRices = scale(BCI30km$PropRice)
+BCI30km$PropSoybeanls = scale(BCI30km$PropSoybeanl)
+BCI30km$PropHerbWetls = scale(BCI30km$PropHerbWetl)
+BCI30km$Prop_MedDisturbls = scale(BCI30km$Prop_MedDisturbl)
+```
+
+###Correlation Matrix###
+```{r}
+# Load data
+my_CorBCI <- BCI30km[, c(19,21,26,27,28,30,31,32,33,36)]
+# print the first 6 rows
+head(my_CorBCI, 9)
+```
+
+```{r}
+res2OP <- cor(my_CorBCI,use = "complete.obs", method = "pearson")
+round(res2OP, 2)
+corrplot(res2OP, type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+```
+
+###Model Development
+####Body Mass (note there are similar naming conventions between mass and condition code; rerun each analysis fully before running result/figure code to ensure the correct data is being read in)###
+```{r}
+##run models
+##Note: Restricted Maximum Likelihood REML set to False. REML Fitting is only appropriate for GLMMs (glmer). Since we are using LMM's (lmer), we want the regular Maximum Liklihood (ML) Fitting.
+
+##Rice and Water
+BCImod11<-lmer(CS_BM ~ PropTotWaterls + PropRices + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##Soy and Water
+BCImod21<-lmer(CS_BM ~ PropTotWaterls + PropSoybeanls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##Woody and Water
+BCImod31<-lmer(CS_BM ~ PropTotWaterls + PropWoodyWets + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##Herb and Water
+BCImod41<-lmer(CS_BM ~ PropTotWaterls + PropHerbWetls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##Dist and Water
+BCImod51<-lmer(CS_BM ~ PropTotWaterls + Prop_MedDisturbls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##Ag Only
+BCImod61<-lmer(CS_BM ~PropTotWaterls + PropRices + PropSoybeanls + (1 | LOC_NUM_BCI), data=BCI30km,REML = F)
+
+#Natural Wetlands
+BCImod71 <- lmer(CS_BM ~ PropTotWaterls + PropWoodyWets + PropHerbWetls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+###Agriculture and Disturbance
+BCImod81 <- lmer(CS_BM ~ PropTotWaterls + PropRices + PropSoybeanls + Prop_MedDisturbls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##Natural Wetlands and Disturbance
+BCImod91 <- lmer(CS_BM ~ PropTotWaterls + PropWoodyWets + PropHerbWetls + Prop_MedDisturbls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##All Habitat
+BCImod101 <- lmer(CS_BM ~ PropTotWaterls + PropRices + PropSoybeanls + PropWoodyWets + PropHerbWetls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+###Full and null
+BCImod_FullAdd1 <- lmer(CS_BM ~ PropTotWaterls + PropRices + PropSoybeanls + PropWoodyWets + PropHerbWetls + Prop_MedDisturbls + (1|LOC_NUM_BCI), data = BCI30km, REML = F) 
+
+BCImod_null1 <-lmer(CS_BM ~ (1 | LOC_NUM_BCI), data=BCI30km,REML = F)
+```
+
+```{r}
+##Set up model list for AIC Table###
+Cand.BCI <- list()
+
+Cand.BCI[[1]] <- BCImod11
+Cand.BCI[[2]] <- BCImod21
+Cand.BCI[[3]] <- BCImod31
+Cand.BCI[[4]] <- BCImod41
+Cand.BCI[[5]] <- BCImod51
+Cand.BCI[[6]] <- BCImod61
+Cand.BCI[[7]] <- BCImod71
+Cand.BCI[[8]] <- BCImod81
+Cand.BCI[[9]] <- BCImod91
+Cand.BCI[[10]] <- BCImod101
+Cand.BCI[[11]] <- BCImod_FullAdd1
+Cand.BCI[[12]] <- BCImod_null1
+```
+
+```{r}
+##AIC Rank Models###
+##Note only averaging models with Delta AICc < 4
+Modnames <- c("Water + Rice_11",
+              "Water + Soy_21",
+              "Water + Woody_31",
+              "Water + Herb_41",
+              "Water + Disturb_51",
+              "Water + Rice + Soybean_61",
+              "Water + Woody + Herb_71",
+              "Water + Rice + Soybean + Disturb_81",
+              "Water + Woody + Herb + Disturbance_91",
+              "Water + Rice + Soybean + Woody + Herb_101",
+              "FullAdd",
+              "Null")
+
+aic_table <- aictab(cand.set = Cand.BCI, modnames = Modnames)
+aic_table
+```
+
+```{r}
+##Model-averaging
+#Based on AIC results, fit models of interest to a new fit list
+
+Cand.mod_ModAvg <- list()
+
+Cand.mod_ModAvg[[1]] <- BCImod91
+Cand.mod_ModAvg[[2]] <- BCImod_FullAdd1
+Cand.mod_ModAvg[[3]] <- BCImod71
+
+
+Modnames_ModAvg <- c("Woody + Herb + Disturbance + Water",
+                     "FullAdd",
+                     "Woody + Herb + Water")
+```
+
+```{r}
+modavg_results_Water <- modavg(parm = "PropTotWaterls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Water
+```
+
+```{r}
+modavg_results_Herb <- modavg(parm = "PropHerbWetls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Herb
+```
+
+```{r}
+modavg_results_Woody <- modavg(parm = "PropWoodyWets", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Woody
+```
+
+```{r}
+modavg_results_Disturb <- modavg(parm = "Prop_MedDisturbls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Disturb
+```
+
+```{r}
+modavg_results_Rice <- modavg(parm = "PropRices", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Rice
+```
+
+```{r}
+modavg_results_Soy <- modavg(parm = "PropSoybeanls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Soy
+```
+
+###Body Mass Global Model Diagnostics####
+```{r}
+###Residuals vs fitted of the model
+residfitmass <- plot_redres(BCImod_FullAdd1, type = "pearson_cond") +
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Pearson residuals") + xlab("Fitted values")
+
+ggsave(residfitmass, file="residfitmass.jpg", width=35, height=20, units="cm", dpi=300)
+
+###Normality of residuals of the model
+residQQplotmass <- plot_resqq(BCImod_FullAdd1) +
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("Normal quantiles")
+
+ggsave(residQQplotmass, file="residQQplotmass.jpg", width=35, height=20, units="cm", dpi=300)
+
+###Residuals vs aginst fixed effects
+residmasswat <- ggplot(BCI30km, aes(x=resid(BCImod_FullAdd1), y = PropTotWaterls)) + 
+  geom_point() + 
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("% Water cover")
+
+residmassrice <- ggplot(BCI30km, aes(x=resid(BCImod_FullAdd1), y = PropRices)) + 
+  geom_point() + 
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("% Rice")
+
+residmasssoy <- ggplot(BCI30km, aes(x=resid(BCImod_FullAdd1), y = PropSoybeanls)) + 
+  geom_point() + 
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("% Soybeans")
+
+residmasswood <- ggplot(BCI30km, aes(x=resid(BCImod_FullAdd1), y = PropWoodyWets)) + 
+  geom_point() + 
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("% Woody wetlands")
+
+residmassherb <- ggplot(BCI30km, aes(x=resid(BCImod_FullAdd1), y = PropHerbWetls)) + 
+  geom_point() + 
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("% Herbaceous wetlands")
+
+residmassdist <- ggplot(BCI30km, aes(x=resid(BCImod_FullAdd1), y = Prop_MedDisturbls)) + 
+  geom_point() + 
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("% Disturbance")
+
+##switched off to prevent saving unless needed
+#ggsave(residmasswat, file="residmasswat.jpg", width=35, height=20, units="cm", dpi=300)
+#ggsave(residmassrice, file="residmassrice.jpg", width=35, height=20, units="cm", dpi=300)
+#ggsave(residmasssoy, file="residmasssoy.jpg", width=35, height=20, units="cm", dpi=300)
+#ggsave(residmasswood, file="residmasswood.jpg", width=35, height=20, units="cm", dpi=300)
+#ggsave(residmassherb, file="residmassharb.jpg", width=35, height=20, units="cm", dpi=300)
+#ggsave(residmassdist, file="residmassdist.jpg", width=35, height=20, units="cm", dpi=300)
+```
+
+
+
+###BCI Analysis###
+```{r}
+##run models
+##Note: Restricted Maximum Likelihood REML set to False. REML Fitting is only appropriate for GLMMs (glmer). Since we are using LMM's (lmer), we want the regular Maximum Liklihood (ML) Fitting.
+
+##Rice and Water
+BCImod1<-lmer(BCI ~ PropTotWaterls + PropRices + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##Soy and Water
+BCImod2<-lmer(BCI ~ PropTotWaterls + PropSoybeanls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##Woody and Water
+BCImod3<-lmer(BCI ~ PropTotWaterls + PropWoodyWets + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##Herb and Water
+BCImod4<-lmer(BCI ~ PropTotWaterls + PropHerbWetls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##Dist and Water
+BCImod5<-lmer(BCI ~ PropTotWaterls + Prop_MedDisturbls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##Ag Only
+BCImod6<-lmer(BCI ~PropTotWaterls + PropRices + PropSoybeanls + (1 | LOC_NUM_BCI), data=BCI30km,REML = F)
+
+#Natural Wetlands
+BCImod7 <- lmer(BCI ~ PropTotWaterls + PropWoodyWets + PropHerbWetls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+###Agriculture and Disturbance
+BCImod8 <- lmer(BCI ~ PropTotWaterls + PropRices + PropSoybeanls + Prop_MedDisturbls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##Natural Wetlands and Disturbance
+BCImod9 <- lmer(BCI ~ PropTotWaterls + PropWoodyWets + PropHerbWetls + Prop_MedDisturbls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+##All Habitat
+BCImod10 <- lmer(BCI ~ PropTotWaterls + PropRices + PropSoybeanls + PropWoodyWets + PropHerbWetls + (1|LOC_NUM_BCI), data = BCI30km, REML = F)
+
+###Full and null
+BCImod_FullAdd <- lmer(BCI ~ PropTotWaterls + PropRices + PropSoybeanls + PropWoodyWets + PropHerbWetls + Prop_MedDisturbls + (1|LOC_NUM_BCI), data = BCI30km, REML = F) 
+
+BCImod_null<-lmer(BCI ~ (1 | LOC_NUM_BCI), data=BCI30km,REML = F)
+```
+
+
+```{r}
+##Set up model list for AIC Table###
+Cand.BCI <- list()
+
+Cand.BCI[[1]] <- BCImod1
+Cand.BCI[[2]] <- BCImod2
+Cand.BCI[[3]] <- BCImod3
+Cand.BCI[[4]] <- BCImod4
+Cand.BCI[[5]] <- BCImod5
+Cand.BCI[[6]] <- BCImod6
+Cand.BCI[[7]] <- BCImod7
+Cand.BCI[[8]] <- BCImod8
+Cand.BCI[[9]] <- BCImod9
+Cand.BCI[[10]] <- BCImod10
+Cand.BCI[[11]] <- BCImod_FullAdd
+Cand.BCI[[12]] <- BCImod_null
+```
+
+```{r}
+##AIC Rank Models###
+##Note only averaging models with Delta AICc < 7
+Modnames <- c("Water + Rice_1",
+              "Water + Soy_2",
+              "Water + Woody_3",
+              "Water + Herb_4",
+              "Water + Disturb_5",
+              "Water + Rice + Soybean_6",
+              "Water + Woody + Herb_7",
+              "Water + Rice + Soybean + Disturb_8",
+              "Water + Woody + Herb + Disturbance_9",
+              "Water + Rice + Soybean + Woody + Herb_10",
+              "FullAdd",
+              "Null")
+
+aic_table <- aictab(cand.set = Cand.BCI, modnames = Modnames)
+aic_table
+```
+
+##Model-averaging
+```{r}
+#Based on AIC results, fit models of interest to a new fit list
+
+Cand.mod_ModAvg <- list()
+
+Cand.mod_ModAvg[[1]] <- BCImod9
+Cand.mod_ModAvg[[2]] <- BCImod_FullAdd
+Cand.mod_ModAvg[[3]] <- BCImod7
+Cand.mod_ModAvg[[4]] <- BCImod10
+
+
+Modnames_ModAvg <- c("Woody + Herb + Disturbance + Water",
+                     "FullAdd",
+                     "Woody + Herb + Water",
+                     "Water + Rice + Soybean + Woody + Herb")
+```
+
+
+```{r}
+modavg_results_Water <- modavg(parm = "PropTotWaterls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Water
+```
+
+```{r}
+modavg_results_Herb <- modavg(parm = "PropHerbWetls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Herb
+```
+
+```{r}
+modavg_results_Woody <- modavg(parm = "PropWoodyWets", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Woody
+```
+
+```{r}
+modavg_results_Disturb <- modavg(parm = "Prop_MedDisturbls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Disturb
+```
+
+```{r}
+modavg_results_Rice <- modavg(parm = "PropRices", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Rice
+```
+
+```{r}
+modavg_results_Soy <- modavg(parm = "PropSoybeanls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Soy
+```
+
+###BCI Global Model Assumption Checks###
+###Assumpotions for body condition
+```{r}
+###Residuals vs fitted of the model
+residfitcondition <- plot_redres(BCImod_FullAdd, type = "pearson_cond") +
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Pearson residuals") + xlab("Fitted values")
+
+ggsave(residfitcondition, file="residfitcondition.jpg", width=35, height=20, units="cm", dpi=300)
+
+###Normality of residuals of the model
+residQQplotcondition <- plot_resqq(BCImod_FullAdd) +
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("Normal quantiles")
+
+ggsave(residQQplotcondition, file="residQQplotcondition.jpg", width=35, height=20, units="cm", dpi=300)
+
+###Residuals vs aginst fixed effects
+residcondwat <- ggplot(BCI30km, aes(x=resid(BCImod_FullAdd), y = PropTotWaterls)) + 
+  geom_point() + 
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("% Water cover")
+
+residcondrice <- ggplot(BCI30km, aes(x=resid(BCImod_FullAdd), y = PropRices)) + 
+  geom_point() + 
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("% Rice")
+
+residcondsoy <- ggplot(BCI30km, aes(x=resid(BCImod_FullAdd), y = PropSoybeanls)) + 
+  geom_point() + 
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("% Soybeans")
+
+residcondwood <- ggplot(BCI30km, aes(x=resid(BCImod_FullAdd), y = PropWoodyWets)) + 
+  geom_point() + 
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("% Woody wetlands")
+
+residcondherb <- ggplot(BCI30km, aes(x=resid(BCImod_FullAdd), y = PropHerbWetls)) + 
+  geom_point() + 
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("% Herbaceous wetlands")
+
+residconddist <- ggplot(BCI30km, aes(x=resid(BCImod_FullAdd), y = Prop_MedDisturbls)) + 
+  geom_point() + 
+  theme(axis.text.x = element_text(size = 24, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 24, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 34, family = "Times New Roman"),axis.title.x = element_text(size = 34, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Residuals") + xlab("% Disturbance")
+
+##switched off to prevent saving unless needed
+#ggsave(residcondwat, file="residcondwat.jpg", width=35, height=20, units="cm", dpi=300)
+#ggsave(residcondrice, file="residcondrice.jpg", width=35, height=20, units="cm", dpi=300)
+#ggsave(residcondsoy, file="residcondsoy.jpg", width=35, height=20, units="cm", dpi=300)
+#ggsave(residcondwood, file="residcondwood.jpg", width=35, height=20, units="cm", dpi=300)
+#ggsave(residcondherb, file="residcondharb.jpg", width=35, height=20, units="cm", dpi=300)
+#ggsave(residconddist, file="residconddist.jpg", width=35, height=20, units="cm", dpi=300)
+```
+
+
+###Body Mass Figure Development from Model Averaged Estimates (make sure body mass analysis has been run before running code below)###
+```{r}
+###Water Cover###
+#variable prep
+
+Water.sd <- sd(BCI30km$PropTotWaterl)
+Water.mean <-mean(BCI30km$PropTotWaterl)
+
+(0-Water.mean)/(Water.sd)
+```
+
+```{r}
+#Water Cover Figure
+nd <- data.frame(PropTotWaterls=seq(-1.750547, 2.230478, length = 100), PropRices=0, PropSoybeanls=0, PropWoodyWets=0, PropHerbWetls=0,Prop_MedDisturbls=0, LOC_NUM_BCI=NA)
+W.act <- modavgPred(cand.set = Cand.mod_ModAvg, newdata = nd)
+
+W.act$Water.log <-nd$PropTotWaterls*Water.sd + Water.mean
+W.act$Water.Orig <-exp(W.act$Water.log)
+W.act <- as.data.frame(W.act)
+
+WatCov_Graph = ggplot(W.act, aes(x = Water.Orig, y= mod.avg.pred)) + 
+  geom_ribbon(aes(ymin = lower.CL, ymax = upper.CL), fill = "grey80") + 
+  geom_line(size=1) + 
+  theme_classic()  + theme(axis.text.x = element_text(size = 34, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 34, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 44, family = "Times New Roman"),axis.title.x = element_text(size = 44, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Standardized body mass") + xlab("% Water cover")
+
+WatCov_Graph
+```
+
+```{r}
+###% Woody Wetlands###
+max(BCI30km$PropWoodyWets)
+min(BCI30km$PropWoodyWets)
+```
+
+```{r}
+#variable prep
+Wood.sd <- sd(BCI30km$PropWoodyWet)
+Wood.mean <-mean(BCI30km$PropWoodyWet)
+```
+
+```{r}
+#Woody Wetlands Figure#
+nd <- data.frame(PropTotWaterls=0, PropRices=0, PropSoybeanls=0, PropWoodyWets = seq(-2.677141, 2.021561, length = 100), PropHerbWetls=0,Prop_MedDisturbls=0, LOC_NUM_BCI=NA)
+Wo.act <- modavgPred(cand.set = Cand.mod_ModAvg, newdata = nd)
+
+Wo.act$Wood.Orig <-nd$PropWoodyWets*Wood.sd + Wood.mean
+Wo.act <- as.data.frame(Wo.act)
+
+Wood_Graph = ggplot(Wo.act, aes(x = Wood.Orig, y= mod.avg.pred)) + 
+  geom_ribbon(aes(ymin = lower.CL, ymax = upper.CL), fill = "grey80") + 
+  geom_line(size=1) + 
+  theme_classic()  + theme(axis.text.x = element_text(size = 34, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 34, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 44, family = "Times New Roman"),axis.title.x = element_text(size = 44, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Standardized body mass") + xlab("% Woody wetlands")
+
+Wood_Graph
+```
+
+```{r}
+###% Herb Wetlands###
+max(BCI30km$PropHerbWetls)
+min(BCI30km$PropHerbWetls)
+```
+
+```{r}
+#variable prep
+Herb.sd <- sd(BCI30km$PropHerbWetl)
+Herb.mean <-mean(BCI30km$PropHerbWetl)
+```
+
+```{r}
+#Herbaceous Wetland Figure
+nd <- data.frame(PropTotWaterls=0, PropRices=0, PropSoybeanls=0, PropWoodyWets=0, PropHerbWetls=seq(-4.615127, 2.369486, length = 100),Prop_MedDisturbls=0, LOC_NUM_BCI=NA)
+H.act <- modavgPred(cand.set = Cand.mod_ModAvg, newdata = nd)
+
+H.act$Herb.log <-nd$PropHerbWetls*Herb.sd + Herb.mean
+H.act$Herb.Orig <-exp(H.act$Herb.log)
+H.act <- as.data.frame(H.act)
+
+Herb_Graph = ggplot(H.act, aes(x = Herb.Orig, y= mod.avg.pred)) + 
+  geom_ribbon(aes(ymin = lower.CL, ymax = upper.CL), fill = "grey80") + 
+  geom_line(size=1) + 
+  theme_classic()  + theme(axis.text.x = element_text(size = 34, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 34, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 44, family = "Times New Roman"),axis.title.x = element_text(size = 44, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Standardized body mass") + xlab("% Herbaceous wetlands")
+
+Herb_Graph
+```
+
+```{r}
+###% Disturbance###
+max(BCI30km$Prop_MedDisturbls)
+min(BCI30km$Prop_MedDisturbls)
+```
+
+```{r}
+#variable prep
+Dist.sd <- sd(BCI30km$Prop_MedDisturbl)
+Dist.mean <-mean(BCI30km$Prop_MedDisturbl)
+```
+
+```{r}
+#Disturbance Figure
+nd <- data.frame(PropTotWaterls=0, PropRices=0, PropSoybeanls=0, PropWoodyWets=0, PropHerbWetls=0,Prop_MedDisturbls=seq(-3.42827, 4.005376, length = 100), LOC_NUM_BCI=NA)
+D.act <- modavgPred(cand.set = Cand.mod_ModAvg, newdata = nd)
+
+D.act$Dist.log <-nd$Prop_MedDisturbls*Dist.sd + Dist.mean
+D.act$Dist.Orig <-exp(D.act$Dist.log)
+D.act <- as.data.frame(D.act)
+
+Dist_Graph = ggplot(D.act, aes(x = Dist.Orig, y= mod.avg.pred)) + 
+  geom_ribbon(aes(ymin = lower.CL, ymax = upper.CL), fill = "grey80") + 
+  geom_line(size=1) + 
+  theme_classic()  + theme(axis.text.x = element_text(size = 34, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 34, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 44, family = "Times New Roman"),axis.title.x = element_text(size = 44, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Standardized body mass") + xlab("% Disturbance")
+
+Dist_Graph
+```
+
+###Body Mass Predictions for GIS Map Reclassifications###
+```{r}
+###Water Cover
+Water.sd <- sd(BCI30km$PropTotWaterl)
+Water.mean <-mean(BCI30km$PropTotWaterl)
+
+
+(log(0.01)-Water.mean)/Water.sd
+(log(100)-Water.mean)/Water.sd
+```
+
+```{r}
+#generate predictions
+nd <- data.frame(PropTotWaterls=seq(-36.0666, 6.429668, length = 1000), PropRices=0, PropSoybeanls=0, PropWoodyWets=0, PropHerbWetls=0,Prop_MedDisturbls=0, LOC_NUM_BCI=NA)
+W.act <- modavgPred(cand.set = Cand.mod_ModAvg, newdata = nd)
+
+W.act$Water.log <-nd$PropTotWaterls*Water.sd + Water.mean
+W.act$Water.Orig <-exp(W.act$Water.log)
+W.act <- as.data.frame(W.act)
+```
+
+```{r}
+#Woody wetlands
+Wood.sd <- sd(BCI30km$PropWoodyWet)
+Wood.mean <-mean(BCI30km$PropWoodyWet)
+
+(0.01-Wood.mean)/Wood.sd
+(100-Wood.mean)/Wood.sd
+```
+
+```{r}
+#generate predictions
+nd <- data.frame(PropTotWaterls=0, PropRices=0, PropSoybeanls=0, PropWoodyWets = seq(-3.634932, 46.68695, length = 1000), PropHerbWetls=0,Prop_MedDisturbls=0, LOC_NUM_BCI=NA)
+Wo.act <- modavgPred(cand.set = Cand.mod_ModAvg, newdata = nd)
+
+Wo.act$Wood.Orig <-nd$PropWoodyWets*Wood.sd + Wood.mean
+Wo.act <- as.data.frame(Wo.act)
+```
+
+```{r}
+#Herbaceous wetlands
+Herb.sd <- sd(BCI30km$PropHerbWetl)
+Herb.mean <-mean(BCI30km$PropHerbWetl)
+
+(log(0.01)-Herb.mean)/Herb.sd
+(log(100)-Herb.mean)/Herb.sd
+```
+
+```{r}
+#generate predictions
+nd <- data.frame(PropTotWaterls=0, PropRices=0, PropSoybeanls=0, PropWoodyWets=0, PropHerbWetls=seq(-13.12833, 24.09572, length = 1000),Prop_MedDisturbls=0, LOC_NUM_BCI=NA)
+H.act <- modavgPred(cand.set = Cand.mod_ModAvg, newdata = nd)
+
+H.act$Herb.log <-nd$PropHerbWetls*Herb.sd + Herb.mean
+H.act$Herb.Orig <-exp(H.act$Herb.log)
+H.act <- as.data.frame(H.act)
+```
+
+```{r}
+#Disturbance
+Dist.sd <- sd(BCI30km$Prop_MedDisturbl)
+Dist.mean <-mean(BCI30km$Prop_MedDisturbl)
+
+(log(0.01)-Dist.mean)/Dist.sd
+(log(100)-Dist.mean)/Dist.sd
+```
+
+```{r}
+#generate predictions
+nd <- data.frame(PropTotWaterls=0, PropRices=0, PropSoybeanls=0, PropWoodyWets=0, PropHerbWetls=0,Prop_MedDisturbls=seq(-12.77981, 17.80551, length = 1000), LOC_NUM_BCI=NA)
+D.act <- modavgPred(cand.set = Cand.mod_ModAvg, newdata = nd)
+
+D.act$Dist.log <-nd$Prop_MedDisturbls*Dist.sd + Dist.mean
+D.act$Dist.Orig <-exp(D.act$Dist.log)
+D.act <- as.data.frame(D.act)
+```
+
+###Save csv's to desired filepath (note: everytime above prediction code is run, it may vary slightly. This is due to parametric bootstrapping techniques required of mixed-model predictions)###
+```{r}
+write.csv(W.act,file='/filepath/WaterMapData_11132022.csv', row.names=FALSE)
+
+write.csv(Wo.act,file='/filepath/WoodyMapData_11132022.csv', row.names=FALSE)
+
+write.csv(H.act,file='/filepath/HerbaceousMapData_11132022.csv', row.names=FALSE)
+
+write.csv(D.act,file='/filepath/DisturbanceMapData_11132022.csv', row.names=FALSE)
+```
