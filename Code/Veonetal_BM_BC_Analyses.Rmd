@@ -135,7 +135,7 @@ Modnames <- c("Water + Rice_11",
               "FullAdd",
               "Null")
 
-aic_table <- aictab(cand.set = Cand.BCI, modnames = Modnames)
+aic_table <- aictab(cand.set = Cand.BCI, modnames = Modnames,  second.ord = FALSE)
 aic_table
 ```
 
@@ -156,32 +156,32 @@ Modnames_ModAvg <- c("Woody + Herb + Disturbance + Water",
 ```
 
 ```{r}
-modavg_results_Water <- modavg(parm = "PropTotWaterls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Water <- modavg(parm = "PropTotWaterls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg,  second.ord = FALSE)
 modavg_results_Water
 ```
 
 ```{r}
-modavg_results_Herb <- modavg(parm = "PropHerbWetls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Herb <- modavg(parm = "PropHerbWetls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg,  second.ord = FALSE)
 modavg_results_Herb
 ```
 
 ```{r}
-modavg_results_Woody <- modavg(parm = "PropWoodyWets", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Woody <- modavg(parm = "PropWoodyWets", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg,  second.ord = FALSE)
 modavg_results_Woody
 ```
 
 ```{r}
-modavg_results_Disturb <- modavg(parm = "Prop_MedDisturbls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Disturb <- modavg(parm = "Prop_MedDisturbls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg, second.ord = FALSE)
 modavg_results_Disturb
 ```
 
 ```{r}
-modavg_results_Rice <- modavg(parm = "PropRices", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Rice <- modavg(parm = "PropRices", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg, second.ord = FALSE)
 modavg_results_Rice
 ```
 
 ```{r}
-modavg_results_Soy <- modavg(parm = "PropSoybeanls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Soy <- modavg(parm = "PropSoybeanls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg, second.ord = FALSE)
 modavg_results_Soy
 ```
 
@@ -311,7 +311,7 @@ Modnames <- c("Water + Rice_1",
               "FullAdd",
               "Null")
 
-aic_table <- aictab(cand.set = Cand.BCI, modnames = Modnames)
+aic_table <- aictab(cand.set = Cand.BCI, modnames = Modnames, second.ord = FALSE)
 aic_table
 ```
 
@@ -335,32 +335,32 @@ Modnames_ModAvg <- c("Woody + Herb + Disturbance + Water",
 
 
 ```{r}
-modavg_results_Water <- modavg(parm = "PropTotWaterls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Water <- modavg(parm = "PropTotWaterls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg, second.ord = FALSE)
 modavg_results_Water
 ```
 
 ```{r}
-modavg_results_Herb <- modavg(parm = "PropHerbWetls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Herb <- modavg(parm = "PropHerbWetls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg, second.ord = FALSE)
 modavg_results_Herb
 ```
 
 ```{r}
-modavg_results_Woody <- modavg(parm = "PropWoodyWets", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Woody <- modavg(parm = "PropWoodyWets", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg, second.ord = FALSE)
 modavg_results_Woody
 ```
 
 ```{r}
-modavg_results_Disturb <- modavg(parm = "Prop_MedDisturbls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Disturb <- modavg(parm = "Prop_MedDisturbls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg, second.ord = FALSE)
 modavg_results_Disturb
 ```
 
 ```{r}
-modavg_results_Rice <- modavg(parm = "PropRices", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Rice <- modavg(parm = "PropRices", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg, second.ord = FALSE)
 modavg_results_Rice
 ```
 
 ```{r}
-modavg_results_Soy <- modavg(parm = "PropSoybeanls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg)
+modavg_results_Soy <- modavg(parm = "PropSoybeanls", cand.set = Cand.mod_ModAvg, modnames = Modnames_ModAvg, second.ord = FALSE)
 modavg_results_Soy
 ```
 
@@ -437,6 +437,7 @@ W.act <- as.data.frame(W.act)
 WatCov_Graph = ggplot(W.act, aes(x = Water.Orig, y= mod.avg.pred)) + 
   geom_ribbon(aes(ymin = lower.CL, ymax = upper.CL), fill = "grey80") + 
   geom_line(size=1) + 
+  coord_cartesian(ylim = c(-1.4,1.4)) +
   theme_classic()  + theme(axis.text.x = element_text(size = 34, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 34, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 44, family = "Times New Roman"),axis.title.x = element_text(size = 44, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Standardized body mass") + xlab("% Water cover")
 
 WatCov_Graph
@@ -465,6 +466,7 @@ Wo.act <- as.data.frame(Wo.act)
 Wood_Graph = ggplot(Wo.act, aes(x = Wood.Orig, y= mod.avg.pred)) + 
   geom_ribbon(aes(ymin = lower.CL, ymax = upper.CL), fill = "grey80") + 
   geom_line(size=1) + 
+  coord_cartesian(ylim = c(-1.4,1.4)) +
   theme_classic()  + theme(axis.text.x = element_text(size = 34, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 34, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 44, family = "Times New Roman"),axis.title.x = element_text(size = 44, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Standardized body mass") + xlab("% Woody wetlands")
 
 Wood_Graph
@@ -494,6 +496,7 @@ H.act <- as.data.frame(H.act)
 Herb_Graph = ggplot(H.act, aes(x = Herb.Orig, y= mod.avg.pred)) + 
   geom_ribbon(aes(ymin = lower.CL, ymax = upper.CL), fill = "grey80") + 
   geom_line(size=1) + 
+  coord_cartesian(ylim = c(-1.4,1.4)) +
   theme_classic()  + theme(axis.text.x = element_text(size = 34, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 34, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 44, family = "Times New Roman"),axis.title.x = element_text(size = 44, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Standardized body mass") + xlab("% Herbaceous wetlands")
 
 Herb_Graph
@@ -523,6 +526,7 @@ D.act <- as.data.frame(D.act)
 Dist_Graph = ggplot(D.act, aes(x = Dist.Orig, y= mod.avg.pred)) + 
   geom_ribbon(aes(ymin = lower.CL, ymax = upper.CL), fill = "grey80") + 
   geom_line(size=1) + 
+  coord_cartesian(ylim = c(-1.4,1.4)) +
   theme_classic()  + theme(axis.text.x = element_text(size = 34, color = "black", family = "Times New Roman"), axis.text.y = element_text(size = 34, color = "black", family = "Times New Roman"), axis.title.y = element_text(size = 44, family = "Times New Roman"),axis.title.x = element_text(size = 44, family = "Times New Roman"), panel.background = element_rect(fill = "white"), panel.border = element_rect(colour = "black", fill = "NA")) + ylab("Standardized body mass") + xlab("% Disturbance")
 
 Dist_Graph
